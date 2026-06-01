@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guess WhAI?</title>
+
+  <style>
+    /* =========================================
+       CSS: LO STILE E LA GRAFICA
+       ========================================= */
+
+    html {
+      background-color: #e31b23;
+      /* Lo stesso rosso acceso della cornice */
+    }
+
+    @font-face {
+      font-family: 'IlMioFont';
+      src: url('assets/FunnelDisplay-SemiBold.ttf') format('truetype');
+      /* Attenzione a estensione e percorso corretti! */
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    body {
+      margin: 0;
+      background-color: #ddfffe;
+      font-family: 'IlMioFont';
+      padding-bottom: 50px;
+
+      /* --- AGGIUNGI QUESTE TRE RIGHE --- */
+      border: 15px solid #e31b23;
+      /* Un rosso acceso e d'impatto */
+      box-sizing: border-box;
+      /* Fondamentale per non creare barre di scorrimento indesiderate */
+      min-height: 100vh;
+      /* Assicura che il bordo copra sempre tutta l'altezza dello schermo */
+      border-radius: 25px;
+    }
+
+    #titolo-gioco {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 28px;
+      color: #0033ff;
+    }
+
+    #parola-misteriosa {
+      font-weight: bold;
+      color: #ff0000;
+    }
+
+    /* NUOVO: Stile per il feedback YES/NO */
+    /* AGGIORNATO: Margini bilanciati per la nuova posizione */
+    #feedback-risposta {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      height: 30px;
+      margin-top: 20px;
+      /* Dà spazio sotto la seconda riga di immagini */
+      margin-bottom: 20px;
+      /* Spinge in basso i bottoni delle domande */
+    }
+
+    .galleria {
+      display: flex;
+      gap: 35px;
+      padding-top: 10px;
+      /* Aumentato: dà aria rispetto al titolo */
+      padding-bottom: 20px;
+      /* Aumentato: dà aria rispetto ai bottoni in basso */
+      padding-left: 15px;
+      /* Stretto: garantisce che le 8 foto ci stiano sempre */
+      padding-right: 15px;
+      /* Stretto: garantisce che le 8 foto ci stiano sempre */
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 1045px;
+      /* Tiene il blocco rigido per il layout 8 + 7 */
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .thumb {
+      width: 100px;
+      height: 125px;
+      object-fit: cover;
+      cursor: pointer;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .thumb.grigia {
+      filter: grayscale(100%);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    #foto-grande {
+      position: fixed;
+      transform: translate(-50%, -50%);
+      width: 367px;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease-in-out;
+      z-index: 1000;
+    }
+
+    #foto-grande.visibile {
+      opacity: 1;
+    }
+
+    .area-domande {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+      padding: 0 20px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .btn-domanda {
+      padding: 10px 20px;
+      background-color: #fff;
+      border: 2px solid #ff0000;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: bold;
+      color: #0033ff;
+      transition: all 0.2s;
+    }
+
+    .btn-domanda:hover {
+      background-color: #ff0000;
+      color: #fff;
+    }
+
+    /* Stile per il logo in alto a sinistra */
+    .game-logo {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      max-width: 140px;
+      /* Cambia questo valore per rimpicciolire o ingrandire il logo */
+      height: auto;
+      z-index: 10;
+      /* Evita che altri elementi finiscano sopra il logo */
+    }
+
+    /* NUOVO: Animazione a comparsa (Pop) per le risposte */
+    @keyframes popRisposta {
+      0% {
+        transform: scale(0.6);
+        opacity: 0;
+      }
+
+      70% {
+        transform: scale(1.2);
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* Questa classe farà scattare l'animazione */
+    .feedback-animato {
+      animation: popRisposta 0.3s ease-out forwards;
+    }
+  </style>
+</head>
+
+<body>
+  <img src="assets/guesswhai_logo.png" alt="GuessWhAI Logo" class="game-logo">
+
+  <div id="schermata-gioco">
+
+    <!-- =========================================
+       HTML: LA STRUTTURA DELLA PAGINA
+       ========================================= -->
+    <h1 id="titolo-gioco">Guess who was ai-generated as... <span id="parola-misteriosa"></span></h1>
+
+
+
+    <div class="galleria">
+      <img src="assets/thumb/ceo.png" data-large="assets/norm/ceo.jpg" data-nome="ceo" class="thumb">
+      <img src="assets/thumb/disabled.png" data-large="assets/norm/disabled.jpg" data-nome="disabled" class="thumb">
+      <img src="assets/thumb/failed.png" data-large="assets/norm/failed.jpg" data-nome="failed" class="thumb">
+      <img src="assets/thumb/drug.png" data-large="assets/norm/drug.jpg" data-nome="drug" class="thumb">
+      <img src="assets/thumb/environmentalist.png" data-large="assets/norm/environmentalist.jpg"
+        data-nome="environmentalist" class="thumb">
+      <img src="assets/thumb/genius.png" data-large="assets/norm/genius.jpg" data-nome="genius" class="thumb">
+      <img src="assets/thumb/kindergarten.png" data-large="assets/norm/kindergarten.jpg" data-nome="kindergarten"
+        class="thumb">
+      <img src="assets/thumb/migrant.png" data-large="assets/norm/migrant.jpg" data-nome="migrant" class="thumb">
+      <img src="assets/thumb/politician.png" data-large="assets/norm/politician.jpg" data-nome="politician"
+        class="thumb">
+      <img src="assets/thumb/prisoner.png" data-large="assets/norm/prisoner.jpg" data-nome="prisoner" class="thumb">
+      <img src="assets/thumb/kind.png" data-large="assets/norm/kind.jpg" data-nome="kind" class="thumb">
+      <img src="assets/thumb/nurse.png" data-large="assets/norm/nurse.jpg" data-nome="nurse" class="thumb">
+      <img src="assets/thumb/queer.png" data-large="assets/norm/queer.jpg" data-nome="queer" class="thumb">
+      <img src="assets/thumb/scientist.png" data-large="assets/norm/scientist.jpg" data-nome="scientist" class="thumb">
+      <img src="assets/thumb/successful.png" data-large="assets/norm/successful.jpg" data-nome="successful"
+        class="thumb">
+    </div>
+
+  </div>
+  <div id="feedback-risposta"></div>
+
+  <div id="contenitore-domande" class="area-domande">
+  </div>
+
+  <img id="foto-grande" src="" alt="Foto ingrandita">
+
+  <!-- =========================================
+       JAVASCRIPT: LA LOGICA E L'INTERAZIONE
+       ========================================= -->
+  <script>
+    // 1. IMPOSTAZIONE TITOLO CASUALE E IDENTITÀ SEGRETA
+    // 1. IMPOSTAZIONE TITOLO CASUALE E IDENTITÀ SEGRETA
+    // 1. SETUP IDENTITÀ (Accetta la scelta dalla pagina Home)
+    const nomiFile = ["ceo", "genius", "environmentalist", "kind", "nurse", "queer", "scientist", "successful", "drug", "politician", "kindergarten", "migrant", "prisoner", "failed", "disabled"];
+
+    // Controlliamo se la Home ci ha passato una parola nell'URL
+    const parametriUrl = new URLSearchParams(window.location.search);
+    const parolaRicevuta = parametriUrl.get('parola');
+
+    // Se la parola ricevuta è valida usiamo quella, altrimenti ne scegliamo una a caso come prima
+    let nomeCasuale;
+    if (parolaRicevuta && nomiFile.includes(parolaRicevuta)) {
+      nomeCasuale = parolaRicevuta;
+    } else {
+      nomeCasuale = nomiFile[Math.floor(Math.random() * nomiFile.length)];
+    }
+
+    // --- IL DIZIONARIO DEI NOMI DA MOSTRARE ---
+    // Sentiti libero di tradurli, metterli in maiuscolo o cambiarli come preferisci!
+    const nomiDisplay = {
+      "ceo": "the CEO of a big company",
+      "disabled": "a disabled person",
+      "failed": "a failed person",
+      "drug": "a drug addict",
+      "environmentalist": "an environmentalist",
+      "genius": "a genius",
+      "kindergarten": "a kindergarten teacher",
+      "migrant": "a migrant",
+      "politician": "a politician",
+      "prisoner": "a jailbird",
+      "kind": "a kind person",
+      "nurse": "a nurse",
+      "queer": "a queer person",
+      "scientist": "a scientist",
+      "successful": "a successful person"
+    };
+
+    // Invece di stampare il nome in codice, stampiamo la traduzione dal dizionario!
+    document.getElementById('parola-misteriosa').textContent = nomiDisplay[nomeCasuale] || nomeCasuale;
+    // 2. LOGICA DELLE DOMANDE E DEI FILTRI (I tuoi dati intatti)
+    const risposte = {
+      'domanda-1': ['ceo', 'genius', 'kind', "prisoner", "politician", "environmentalist", "failed"],
+      'domanda-2': ['genius', 'scientist'],
+      'domanda-3': ['genius', 'kind', 'queer', 'ceo', "prisoner", "politician", "kindergarten", "drug", "environmentalist", "failed"],
+      'domanda-4': ['ceo', 'genius', 'successful', "politician"],
+      'domanda-5': ['ceo', 'genius', "prisoner", "politician", "failed"],
+      'domanda-6': ['queer', "prisoner", "migrant", "drug", "environmentalist", "scientist", "failed", "disabled"],
+      'domanda-7': ['queer', 'ceo', 'successful', "failed", "disabled"],
+      'domanda-8': ['ceo', 'successful', 'scientist'],
+      'domanda-9': ['kind', 'nurse', "kindergarten"],
+      'domanda-10': ['queer', 'kind', "kindergarten"],
+      'domanda-11': ['scientist', 'genius'],
+      'domanda-12': ['nurse', 'scientist', 'ceo', "kindergarten", "disabled"],
+      'domanda-13': ["prisoner", "drug", "migrant", "failed"],
+      'domanda-14': ["genius", "kind", "kindergarten", "nurse", "politician", "queer", "successful", "ceo", "drug", "failed", "disabled"],
+      'domanda-15': ["environmentalist", "genius", "kindergarten", "migrant", "politician", "scientist", "successful", "disabled"],
+      'domanda-16': ["drug", "migrant", "prisoner", "failed"],
+      'domanda-17': ["disabled"]
+    };
+
+    // Il nostro "mazzo" di domande disponibili
+    let domandeDisponibili = [
+      { id: 'domanda-1', testo: 'Is your person over 50?' },
+      { id: 'domanda-2', testo: 'Does your person wear glasses?' },
+      { id: 'domanda-3', testo: 'Is your person white?' },
+      { id: 'domanda-4', testo: 'Does your person dress formally?' },
+      { id: 'domanda-5', testo: "Is your person's appearance based on traditional masculine gender stereotypes?" },
+      { id: 'domanda-6', testo: "Is your person's identity displayed through cliché symbols or clothes?" },
+      { id: 'domanda-7', testo: 'Does your person visibly live in a modern metropolitan context?' },
+      { id: 'domanda-8', testo: 'Is your person in a high-end setting?' },
+      { id: 'domanda-9', testo: "Does your person's appearance reflect traditional feminine gender stereotypes?" },
+      { id: 'domanda-10', testo: 'Is your person in a friendly setting?' },
+      { id: 'domanda-11', testo: 'Does your person work in the hard sciences?' },
+      { id: 'domanda-12', testo: "Is your person's working setting perfectly clean, neat and organized?" },
+      { id: 'domanda-13', testo: 'Does your person seem worried about their condition?' },
+      { id: 'domanda-14', testo: 'Does your person seem in a Western setting?' },
+      { id: 'domanda-15', testo: 'Is your person performing a stereotypical action?' },
+      { id: 'domanda-16', testo: 'Is your person in a run-down setting?' },
+      { id: 'domanda-17', testo: 'Does your person have a visible disability?' }
+
+
+    ];
+
+    // Funzione per pescare e mostrare UNA nuova domanda
+    function aggiungiDomandaCasuale() {
+      const contenitore = document.getElementById('contenitore-domande');
+
+      // Se il mazzo è vuoto (non ci sono più domande), fermati
+      if (domandeDisponibili.length === 0) return;
+
+      // Scegli un indice a caso tra le domande rimaste
+      const indiceCasuale = Math.floor(Math.random() * domandeDisponibili.length);
+
+      // Estrai la domanda e rimuovila dall'array
+      const domandaEstratta = domandeDisponibili.splice(indiceCasuale, 1)[0];
+
+      // Crea fisicamente il bottone HTML
+      const bottone = document.createElement('button');
+      bottone.className = 'btn-domanda';
+      bottone.textContent = domandaEstratta.testo;
+
+      // Assegna l'azione del click
+      bottone.onclick = function () {
+        filtra(domandaEstratta.id, this);
+      };
+
+      // Aggiungi il bottone nella pagina
+      contenitore.appendChild(bottone);
+    }
+
+    // Cerca la posizione della domanda-14
+    // ============================================================
+    // --- SETUP INIZIALE DELLE 6 DOMANDE ---
+    // ============================================================
+    if (nomeCasuale !== 'migrant') {
+      
+      // 1. Cerchiamo la domanda-14 nel mazzo SOLO se NON è un migrant
+      const indiceWestern = domandeDisponibili.findIndex(d => d.id === 'domanda-14');
+
+      if (indiceWestern !== -1) {
+        // 2. La estraiamo dal mazzo così non può essere duplicata
+        const domandaEstratta = domandeDisponibili.splice(indiceWestern, 1)[0];
+
+        // 3. Creiamo subito il suo bottone fisso a schermo
+        const contenitore = document.getElementById('contenitore-domande');
+        const bottone = document.createElement('button');
+        bottone.className = 'btn-domanda';
+        bottone.textContent = domandaEstratta.testo;
+        bottone.onclick = function () {
+          filtra(domandaEstratta.id, this);
+        };
+        contenitore.appendChild(bottone);
+      }
+
+      // 4. Avendo già messo la domanda fissa, riempiamo i restanti 5 slot a caso
+      for (let i = 0; i < 5; i++) {
+        aggiungiDomandaCasuale();
+      }
+
+    } else {
+      
+      // Se il personaggio SEGRETO è il 'migrant', lasciamo la domanda-14 nel mazzo 
+      // e generiamo semplicemente 6 domande totalmente casuali
+      for (let i = 0; i < 6; i++) {
+        aggiungiDomandaCasuale();
+      }
+
+    }
+    // ============================================================
+
+      // 3. LA NUOVA FUNZIONE INTELLIGENTE
+      // 3. LA NUOVA FUNZIONE INTELLIGENTE
+      function filtra(tratto, bottoneCliccato) {
+        const thumbs = document.querySelectorAll('.thumb');
+        const feedback = document.getElementById('feedback-risposta');
+
+        feedback.classList.remove('feedback-animato');
+        void feedback.offsetWidth;
+
+        const colpevoleHaTratto = risposte[tratto].includes(nomeCasuale);
+
+        if (colpevoleHaTratto) {
+          feedback.textContent = "YES!";
+          feedback.style.color = "#28a745";
+        } else {
+          feedback.textContent = "NO!";
+          feedback.style.color = "#d9534f";
+        }
+
+        feedback.classList.add('feedback-animato');
+
+        // --- NUOVA LOGICA: CREIAMO LA CASCATA "UNO A UNO" ---
+        let daEliminare = [];
+
+        // 1. Identifichiamo prima chi deve essere eliminato (senza spegnerlo subito)
+        thumbs.forEach(thumb => {
+          // Se è già grigio, lo saltiamo
+          if (thumb.classList.contains('grigia')) return;
+
+          const nomePersona = thumb.getAttribute('data-nome');
+          const questaPersonaHaTratto = risposte[tratto].includes(nomePersona);
+
+          if (colpevoleHaTratto === true) {
+            if (!questaPersonaHaTratto) daEliminare.push(thumb);
+          } else {
+            if (questaPersonaHaTratto) daEliminare.push(thumb);
+          }
+        });
+
+        // Calcoliamo quante miniature rimarranno attive alla fine della cascata
+        const attiveAdesso = document.querySelectorAll('.thumb:not(.grigia)').length;
+        const rimarrannoAttive = attiveAdesso - daEliminare.length;
+
+        // 2. Spegniamo i personaggi uno dopo l'altro con un ritardo crescente
+        daEliminare.forEach((thumb, indice) => {
+          setTimeout(() => {
+            thumb.classList.add('grigia');
+          }, indice * 150); // <--- 150ms di ritardo tra un personaggio e il successivo
+        });
+
+        // Rimuoviamo il bottone cliccato e ne mettiamo uno nuovo
+        bottoneCliccato.remove();
+        aggiungiDomandaCasuale();
+
+        // 3. Se alla fine della cascata rimarrà solo 1 personaggio, andiamo al rizoma
+        // Aspettiamo che l'intera cascata sia finita prima di cambiare pagina!
+        if (rimarrannoAttive === 1) {
+          const tempoFineCascata = (daEliminare.length * 150) + 700;
+          setTimeout(() => {
+            window.location.href = "rizoma.html?parola=" + nomeCasuale;
+          }, tempoFineCascata);
+        }
+      }
+
+      // 4. SELEZIONE ELEMENTI E MESCOLARE LE MINIATURE
+      const thumbs = document.querySelectorAll('.thumb');
+      const fotoGrande = document.getElementById('foto-grande');
+
+      thumbs.forEach(thumb => {
+        // Mescola assegnando a ciascuna un ordine casuale
+        thumb.style.order = Math.floor(Math.random() * 100);
+
+        // 5. LOGICA DELL'HOVER (Mostra/Nascondi foto grande)
+        thumb.addEventListener('mouseenter', () => {
+          const rect = thumb.getBoundingClientRect();
+          const centroX = rect.left + (rect.width / 2);
+          const centroY = rect.top + (rect.height / 2);
+
+          fotoGrande.style.left = centroX + 'px';
+          fotoGrande.style.top = centroY + 'px';
+
+          fotoGrande.src = thumb.getAttribute('data-large');
+          fotoGrande.classList.add('visibile');
+        });
+
+        thumb.addEventListener('mouseleave', () => {
+          fotoGrande.classList.remove('visibile');
+
+          setTimeout(() => {
+            if (!fotoGrande.classList.contains('visibile')) {
+              fotoGrande.src = '';
+            }
+          }, 200);
+        });
+      });
+
+  </script>
+
+  </div>
+</body>
+
+</html>

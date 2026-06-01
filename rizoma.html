@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess WhAI? Contesting images</title>
+
+    <style>
+        html {
+            background-color: #e31b23;
+            /* Lo stesso rosso acceso della cornice */
+        }
+
+        /* 1. Registriamo il font associandolo a "bold" visto che è un SemiBold */
+        @font-face {
+            font-family: 'Funnel Display';
+            src: url('assets/fonts/FunnelDisplay-SemiBold.ttf') format('truetype');
+            font-weight: bold; /* <--- CAMBIATO IN BOLD PER ALLINEARLO AI TITOLI */
+            font-style: normal;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ddfffe;
+            overflow: hidden;
+            font-family: 'Funnel Display', sans-serif;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            border: 15px solid #e31b23;
+            box-sizing: border-box;
+            border-radius: 25px;
+        }
+
+        #titolo-vittoria {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(40px, 8vw, 110px);
+            font-weight: bold;
+            color: #ffffff;
+            white-space: normal;
+            width: 95vw;
+            line-height: 1.2;
+            background: none;
+            box-shadow: none;
+            padding: 0;
+            margin: 0;
+            z-index: 1;
+            text-align: center;
+            pointer-events: none;
+            
+            /* --- AGGIUNGI QUESTA RIGA PER FORZARE IL FONT SUL TITOLO --- */
+            font-family: 'Funnel Display', sans-serif;
+
+            -webkit-text-stroke: 0.5px #0044ff; /* Spessore (1.5px) e codice colore azzurro */
+        }
+
+        #parola-bersaglio {
+            font-weight: bold;
+        }
+
+        #canvas-rizoma {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+
+        /* Il logo in alto a sinistra che rimane sotto a tutto */
+        .game-logo-back {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            max-width: 140px;
+            height: auto;
+            z-index: 0;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <img src="assets/guesswhai_logo.png" alt="GuessWhAI Logo" class="game-logo-back">
+
+    <h1 id="titolo-vittoria">Contesting Images about...<br><span id="parola-bersaglio"></span></h1>
+
+    <canvas id="canvas-rizoma"></canvas>
+
+    <script>
+        // --- 1. SETUP INIZIALE E VARIABILI ---
+        // --- 1. SETUP INIZIALE E VARIABILI ---
+        const parametriUrl = new URLSearchParams(window.location.search);
+        let bersaglioCorrente = parametriUrl.get('parola') || "Unknown";
+
+        // --- IL DIZIONARIO DEI NOMI DA MOSTRARE ---
+        // Modifica la parte a destra dei due punti come preferisci!
+        const nomiDisplay = {
+            "ceo": "the CEO of a big company",
+            "disabled": "a disabled person",
+            "failed": "a failed person",
+            "drug": "a drug addict",
+            "environmentalist": "an environmentalist",
+            "genius": "a genius",
+            "kindergarten": "a kindergarten teacher",
+            "migrant": "a migrant",
+            "politician": "a politician",
+            "prisoner": "a jailbird",
+            "kind": "a kind person",
+            "nurse": "a nurse",
+            "queer": "a queer person",
+            "scientist": "a scientist",
+            "successful": "a successful person"
+        };
+
+        const titoloSpan = document.getElementById('parola-bersaglio');
+        // Usiamo il dizionario: se esiste la traduzione usala, altrimenti usa il nome base
+        titoloSpan.textContent = nomiDisplay[bersaglioCorrente] || bersaglioCorrente;
+
+        const canvas = document.getElementById('canvas-rizoma');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // --- 2. IL DATABASE DEI PENSIERI ---
+        const pensieri = {
+            "ceo": {
+                "disabled": `"Disabled person":\nCan't CEOs have disabilities?`,
+                "failed": `"Failed person":\nWhen a CEO fails, thousands of workers\nlose their jobs while they walk away with millions.`,
+                "drug": `"Drug addict":\nThere are probably CEOs who are drug addicts.`,
+                "environmentalist": `"Environmentalist":\nMaybe you are an environmentalist CEO,\nprobably you aren't.`,
+                "migrant": `"Migrant":\nYou probably come from another country.\nWhy aren't you considered as migrant as me?`,
+                "prisoner": `"Jailbird":\nMany CEOs commit massive\nfinancial and environmental crimes.`,
+                "queer": `"Queer person":\nWhy can't I be a CEO?`
+            },
+            "migrant": {
+                "ceo": '"CEO":\nI come from abroad.\nWhy am I not considered a migrant?',
+                "scientist": '"Scientist":\nScientific progress requires\nthe free flow of people, minds and ideas.',
+                "genius": `"Genius":\nI had the opportunity to study abroad,\nbut I wasn't considered a "migrant".`,
+                "politician": '"Politician":\nI was elected in the Dutch Parliament,\nbut my parents come from Poland.',
+                "nurse": `"Nurse":\nMy parents were born in a different country than me.`
+            },
+            "queer": {
+                "migrant": `"Migrant":\nMany queer people are forced to\nflee state-sanctioned persecution to survive."`,
+                "prisoner": `"Jailbird":\nThe carceral system disproportionately\npenalises queer and trans bodies.`,
+                "ceo": `"CEO":\nCan't an executive be queer\nwithout wearing rainbows?`,
+                "kindergarten": '"Kindergarten teacher":\nQueer educators work every day\nfor inclusive and safe classrooms.',
+                "genius": '"Genius":\nQueer minds have shaped human history and philosophy.\nGenius has no single identity.',
+                "politician": `"Politician":\nCan't I be queer?`,
+                "disabled": '"Disabled person":\nQueerness and disability intersect deeply\nin the fight against bodily norms.'
+            },
+            "disabled": {
+                "migrant": `"Migrant":\nMigrants with disabilities face double oppression at borders,\nfacing lack of accessibility to assistance and protection risks.`,
+                "queer": `"Queer person":\nQueer, disabled people face\nableism and homophobia combined.`,
+                "ceo": `"CEO":\nWhy can't I have a disability?`,
+                "kindergarten": '"Kindergarten teacher":\nWe need to rethink the education system\nin an inclusive and accessible way.',
+                "successful": `"Successful person":\nWhy should I be necessarily able-bodied?`,
+                "kind": `"Kind person":\nIn my experience parks have\nway more architectural barriers.`
+            },
+            "prisoner": {
+                "disabled": `"Disabled person":\nThe carceral complex unfairly disadvantages\nneurodivergent and disabled individuals.`,
+                "kind": `"Kind person":\nWhy can't I be a former inmate?`,
+                "ceo": '"CEO":\nEver heard of financial fraud, labour exploitation\nand tax evasion in corporate boardrooms?',
+                "queer": `"Queer person":\nWe should protect the rights\nof queer people in prison.`,
+                "politician": `"Politician":\nThere are more politicians with legal problems\nthan I'd like to admit.`
+            },
+            "scientist": {
+                "genius": '"Genius":\nI am a theoretical astrophysicist and a scientist,\nbut I have never been in a lab.',
+                "environmentalist": `"Environmentalist":\nScience also needs to take\nmoral and political action.`,
+                "kind": `"Kind person":\nIsn't scientific practice also about\nethics, community and human care?`,
+                "kindergarten": '"Kindergarten teacher":\nWe teach children how to think,\nquestion and explore the world.',
+                "disabled": `"Disabled person":\nThere are a lot of scientists with disabilities.`
+            },
+            "successful": {
+                "environmentalist": `"Environmentalist":\nIs success just luxury consumerism?`,
+                "kind": `"Kind person":\nIsn't there success in collective care,\nmutual aid and community well-being?`,
+                "nurse": `"Nurse":\nWhy can't I be considered successful?`,
+                "kindergarten": '"Kindergarten teacher":\nWhat if my job has\na better impact on society than yours?',
+                "failed": `"Failed person":\nWhat if I feel happy?`
+            },
+            "drug": {
+                "ceo": `"CEO":\nThere are probably CEOs who are drug addicts.`,
+                "nurse": `"Nurse":\nDrug misuse is quite common in healthcare workers.`,
+                "politician": `"Politician":\nWe should consider the lack of social welfare\nwhen talking about drug abusers' responsibilities.`,
+                "prisoner": `"Jailbird":\nThere is always systemic collective responsibility.`,
+                "kind": `"Kind person":\nWhy can't I be a drug addict?`
+            },
+            "genius": {
+                "kind": `"Kind person":\nAre there geniuses only within hard sciences?`,
+                "prisoner": `"Jailbird":\nHow much did growing up in a wealthy family help?`,
+                "migrant": `"Migrant":\nAre there only Western geniuses?`,
+                "scientist": '"Scientist":\nWhat about geniuses of other genders?',
+                "environmentalist": `"Environmentalist":\nIs genius just abstract academic isolation?`,
+                "kindergarten": '"Kindergarten teacher":\nDo you become a genius only after turning 50?'
+            },
+            "kindergarten": {
+                "genius": `"Genius":\nWhy can't I be a kindergarten teacher?`,
+                "successful": `"Successful person":\nWhy shouldn't you be considered successful?`,
+                "politician": `"Politician":\nWhy couldn't men over 50 be kindergarten teachers?`,
+                "disabled": `"Disabled person":\nCan't a kindergarten teacher have disabilities?`,
+                "migrant": `"Migrant":\nCan't kindergarten teachers have non-Western roots?`
+            },
+            "politician": {
+                "environmentalist": `"Environmentalist":\nBeing a politician doesn't mean\nonly talking behind a podium.`,
+                "migrant": `"Migrant":\nAre there politicians only in Western countries?`,
+                "nurse": `"Nurse":\nWhat if my job has more political impact than yours?`,
+                "kind": `"Kind person":\nWhy couldn't I be a politician?`,
+                "queer": `"Queer person":\nThere are a lot of queer activists who\nrepresent me better than professional politicians.`,
+                "scientist": `"Scientist":\nAre there only white politicians?`
+            },
+            "environmentalist": {
+                "disabled": `"Disabled person":\nCan't I be an environmentalist?`,
+                "kindergarten": `"Kindergarten teacher":\nWe teach kids to respect nature.\nI am an environmentalist even though I don't plant trees.`,
+                "politician": `"Politician":\nEnvironmentalism should be\nat the centre of the political debate.`,
+                "migrant": `"Migrant":\nEcological collapse destroys habitats and forces human displacement.`,
+                "ceo": `"CEO":\nI am also environmentalist but not in front of the shareholders.`
+            },
+            "nurse": {
+                "genius": `"Genius":\nWhy can't I be a nurse?`,
+                "scientist": `"Scientist":\nWhat about nurses of other genders?`,
+                "drug": `"Drug addict":\nI've never seen such a clean and organised hospital.`,
+                "kindergarten": `"Kindergarten teacher":\nWhy care labour is always feminized?`,
+                "prisoner": `"Jailbird":\nWhat about representing\nthe inadequate healthcare we have in prison?`
+            },
+            "failed": {
+                "ceo": `"CEO":\nCan't CEOs feel like failures?`,
+                "drug": `"Drug addict":\nWhat if it's a systemic failure?`,
+                "scientist": `"Scientist":\nIn a profit-driven academy, my research will be criticised\nif it doesn't produce immediate results.`,
+                "genius": `"Genius":\nI always felt like a failure\nwhen I didn't pass exams at school.`,
+                "prisoner": `"Jailbird":\nWhy are we considered a failure by the system?\nCan't we build a better future?`
+            },
+            "kind": {
+                "prisoner": `"Jailbird":\nWhy couldn't I be kind?`,
+                "kindergarten": `"Kindergarten teacher":\nWhy kindness is always feminized?`,
+                "genius": `"Genius":\nWhy genius is always hyper-rationalism and not empathy?`,
+                "successful": `"Successful person":\nIsn't it possible to reach success being kind?`,
+                "environmentalist": `"Environmentalist":\nWhy kindness can't be political?`
+            }
+        };
+
+        const nomiFile = [
+            "ceo", "disabled", "failed", "drug", "environmentalist",
+            "genius", "kindergarten", "migrant", "politician", "prisoner",
+            "kind", "nurse", "queer", "scientist", "successful"
+        ];
+
+        let nodi = [];
+
+        function generaColoreCasuale() {
+            const h = Math.floor(Math.random() * 360);
+            const s = 85;
+            const l = 90;
+            return { h, s, l };
+        }
+
+        nomiFile.forEach(nome => {
+            let img = new Image();
+            img.src = `assets/norm/${nome}.jpg`;
+
+            let velocitaBase = 1.8;
+            let vxCasuale = (Math.random() - 0.5) * velocitaBase;
+            let vyCasuale = (Math.random() - 0.5) * velocitaBase;
+
+            if (Math.abs(vxCasuale) < 0.2) vxCasuale += (vxCasuale < 0 ? -0.3 : 0.3);
+            if (Math.abs(vyCasuale) < 0.2) vyCasuale += (vyCasuale < 0 ? -0.3 : 0.3);
+
+            nodi.push({
+                nome: nome,
+                img: img,
+                coloreHsl: generaColoreCasuale(),
+                x: Math.random() * (canvas.width - 200) + 100,
+                y: Math.random() * (canvas.height - 200) + 100,
+                vx: vxCasuale,
+                vy: vyCasuale,
+                r: Math.random() * 40 + 30
+            });
+        });
+
+        // --- 3. INTERATTIVITÀ ---
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            for (let i = nodi.length - 1; i >= 0; i--) {
+                const nodo = nodi[i];
+                const dx = mouseX - nodo.x;
+                const dy = mouseY - nodo.y;
+                const distanza = Math.sqrt(dx * dx + dy * dy);
+
+                if (distanza <= nodo.r) {
+                    bersaglioCorrente = nodo.nome;
+                    // AGGIORNATO: Pesca il nome pulito dal dizionario anche al clic!
+                    titoloSpan.textContent = nomiDisplay[bersaglioCorrente] || bersaglioCorrente;
+                    break;
+                }
+            }
+        });
+
+        // --- 4. FUNZIONE VIGNETTE (Fluidità massima, niente arrotondamenti) ---
+        // --- 4. FUNZIONE PER DISEGNARE LE NUVOLETTE (Con memoria di stato dei bordi) ---
+        // --- 4. FUNZIONE PER DISEGNARE LE NUVOLETTE (Multi-riga e Anti-Flicker) ---
+        function disegnaNuvoletta(ctx, nodo, testo) {
+            ctx.save();
+            const fontSize = 12;
+            const lineHeight = 16; // Spazio verticale per ogni riga di testo
+            ctx.font = `normal ${fontSize}px sans-serif`;
+
+            // 0. SPEZZIAMO IL TESTO ad ogni "andare a capo" (\n)
+            const linee = testo.split('\n');
+
+            // Troviamo la riga più lunga per calcolare la larghezza corretta del fumetto
+            let maxTextWidth = 0;
+            linee.forEach(linea => {
+                const w = ctx.measureText(linea).width;
+                if (w > maxTextWidth) maxTextWidth = w;
+            });
+
+            const paddingX = 10;
+            const width = maxTextWidth + paddingX * 2;
+
+            // L'ALTEZZA ORA È DINAMICA: cresce in base al numero di righe!
+            const height = (linee.length * lineHeight) + 14;
+
+            const triangleHeight = 10;
+            const cornerRadius = 8;
+
+            // 1. GESTIONE DELLA MEMORIA DI STATO (Invariata)
+            if (nodo.isFlipped === undefined) nodo.isFlipped = false;
+
+            if (!nodo.isFlipped) {
+                const spazioSopra = nodo.y - nodo.r - triangleHeight - height;
+                if (spazioSopra < 5) nodo.isFlipped = true;
+            } else {
+                const tipYFlipped = nodo.y + nodo.r + 5;
+                const rectTopFlipped = tipYFlipped + triangleHeight;
+                const spazioSotto = canvas.height - (rectTopFlipped + height);
+                if (spazioSotto < 5) nodo.isFlipped = false;
+            }
+
+            // 2. CALCOLO DELLE POSIZIONI (Invariato)
+            let tipY, rectTop;
+            if (!nodo.isFlipped) {
+                tipY = nodo.y - nodo.r - 5;
+                rectTop = tipY - triangleHeight - height;
+            } else {
+                tipY = nodo.y + nodo.r + 5;
+                rectTop = tipY + triangleHeight;
+            }
+
+            let rectLeft = nodo.x - width / 2;
+            if (rectLeft < 10) rectLeft = 10;
+            if (rectLeft + width > canvas.width - 10) rectLeft = canvas.width - width - 10;
+
+            let baseTriangoloX = Math.max(rectLeft + cornerRadius + 6, Math.min(nodo.x, rectLeft + width - cornerRadius - 6));
+
+            // 3. DISEGNO DELLA GEOMETRIA (Invariato)
+            ctx.beginPath();
+            if (!nodo.isFlipped) {
+                ctx.moveTo(rectLeft + cornerRadius, rectTop);
+                ctx.lineTo(rectLeft + width - cornerRadius, rectTop);
+                ctx.arcTo(rectLeft + width, rectTop, rectLeft + width, rectTop + cornerRadius, cornerRadius);
+                ctx.lineTo(rectLeft + width, rectTop + height - cornerRadius);
+                ctx.arcTo(rectLeft + width, rectTop + height, rectLeft + width - cornerRadius, rectTop + height, cornerRadius);
+                ctx.lineTo(baseTriangoloX + 6, rectTop + height);
+                ctx.lineTo(nodo.x, tipY);
+                ctx.lineTo(baseTriangoloX - 6, rectTop + height);
+                ctx.lineTo(rectLeft + cornerRadius, rectTop + height);
+                ctx.arcTo(rectLeft, rectTop + height, rectLeft, rectTop + height - cornerRadius, cornerRadius);
+                ctx.lineTo(rectLeft, rectTop + cornerRadius);
+                ctx.arcTo(rectLeft, rectTop, rectLeft + cornerRadius, rectTop, cornerRadius);
+            } else {
+                ctx.moveTo(rectLeft + cornerRadius, rectTop);
+                ctx.lineTo(baseTriangoloX - 6, rectTop);
+                ctx.lineTo(nodo.x, tipY);
+                ctx.lineTo(baseTriangoloX + 6, rectTop);
+                ctx.lineTo(rectLeft + width - cornerRadius, rectTop);
+                ctx.arcTo(rectLeft + width, rectTop, rectLeft + width, rectTop + cornerRadius, cornerRadius);
+                ctx.lineTo(rectLeft + width, rectTop + height - cornerRadius);
+                ctx.arcTo(rectLeft + width, rectTop + height, rectLeft + width - cornerRadius, rectTop + height, cornerRadius);
+                ctx.lineTo(rectLeft + cornerRadius, rectTop + height);
+                ctx.arcTo(rectLeft, rectTop + height, rectLeft, rectTop + height - cornerRadius, cornerRadius);
+                ctx.lineTo(rectLeft, rectTop + cornerRadius);
+                ctx.arcTo(rectLeft, rectTop, rectLeft + cornerRadius, rectTop, cornerRadius);
+            }
+            ctx.closePath();
+
+            const hslObj = nodo.coloreHsl;
+            ctx.fillStyle = `hsl(${hslObj.h}, ${hslObj.s}%, ${hslObj.l}%)`;
+            ctx.fill();
+            ctx.strokeStyle = `hsl(${hslObj.h}, ${hslObj.s}%, ${hslObj.l - 40}%)`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // --- 4. DISEGNO DEL TESTO MULTI-RIGA ---
+            ctx.fillStyle = `hsl(${hslObj.h}, ${hslObj.s}%, ${hslObj.l - 60}%)`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle"; // Allineamento mediano per il bilanciamento
+
+            // Formula matematica per centrare il blocco di righe dentro il fumetto
+            const centerY = rectTop + height / 2;
+            const startY = centerY - ((linee.length - 1) * lineHeight) / 2;
+
+            // Disegniamo le righe una per una sfasate di 'lineHeight'
+            linee.forEach((linea, indice) => {
+                ctx.fillText(linea, rectLeft + width / 2, startY + (indice * lineHeight));
+            });
+
+            ctx.restore();
+        }
+
+        // --- 5. IL MOTORE GRAFICO ---
+        function disegnaFrame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            nodi.forEach(nodo => {
+                nodo.x += nodo.vx;
+                nodo.y += nodo.vy;
+                if (nodo.x - nodo.r < 0) { nodo.x = nodo.r; nodo.vx = Math.abs(nodo.vx); }
+                else if (nodo.x + nodo.r > canvas.width) { nodo.x = canvas.width - nodo.r; nodo.vx = -Math.abs(nodo.vx); }
+                if (nodo.y - nodo.r < 0) { nodo.y = nodo.r; nodo.vy = Math.abs(nodo.vy); }
+                else if (nodo.y + nodo.r > canvas.height) { nodo.y = canvas.height - nodo.r; nodo.vy = -Math.abs(nodo.vy); }
+            });
+
+            let distanzaMassimaLinee = 1000;
+            let tempo = Date.now() * 0.0015;
+
+            for (let i = 0; i < nodi.length; i++) {
+                for (let j = i + 1; j < nodi.length; j++) {
+                    let dx = nodi[j].x - nodi[i].x;
+                    let dy = nodi[j].y - nodi[i].y;
+                    let distanza = Math.sqrt(dx * dx + dy * dy);
+                    let oscillazione = (Math.sin(tempo + (i * 12) + (j * 27)) + 1) / 2;
+                    if (distanza < distanzaMassimaLinee) {
+                        ctx.lineWidth = 1.5;
+                        let opacitaDistanza = 1 - (distanza / distanzaMassimaLinee);
+                        let opacitaFinale = opacitaDistanza * oscillazione;
+                        if (opacitaFinale > 0.01) {
+                            ctx.strokeStyle = `rgba(0, 0, 255, ${opacitaFinale})`;
+                            ctx.beginPath();
+                            ctx.moveTo(nodi[i].x, nodi[i].y);
+                            ctx.lineTo(nodi[j].x, nodi[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                    let distanzaMinima = nodi[i].r + nodi[j].r;
+                    if (distanza < distanzaMinima) {
+                        if (distanza === 0) distanza = 0.1;
+                        let overlap = distanzaMinima - distanza;
+                        let nx = dx / distanza;
+                        let ny = dy / distanza;
+                        nodi[i].x -= nx * (overlap / 2); nodi[i].y -= ny * (overlap / 2);
+                        nodi[j].x += nx * (overlap / 2); nodi[j].y += ny * (overlap / 2);
+                        let vdx = nodi[i].vx - nodi[j].vx; let vdy = nodi[i].vy - nodi[j].vy;
+                        let dotProduct = vdx * nx + vdy * ny;
+                        if (dotProduct > 0) {
+                            nodi[i].vx -= dotProduct * nx; nodi[i].vy -= dotProduct * ny;
+                            nodi[j].vx += dotProduct * nx; nodi[j].vy += dotProduct * ny;
+                        }
+                    }
+                }
+            }
+
+            // --- DISEGNO IMMAGINI (Fluide con sub-pixel rendering) ---
+            nodi.forEach(nodo => {
+                ctx.save();
+
+                if (nodo.nome === bersaglioCorrente) {
+                    ctx.filter = "grayscale(100%)";
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(nodo.x, nodo.y, nodo.r, 0, Math.PI * 2);
+                ctx.clip();
+
+                if (nodo.img.complete && nodo.img.width > 0) {
+                    let r = Math.max((nodo.r * 2) / nodo.img.width, (nodo.r * 2) / nodo.img.height);
+                    ctx.drawImage(nodo.img, nodo.x - (nodo.img.width * r) / 2, nodo.y - (nodo.img.height * r) / 2, nodo.img.width * r, nodo.img.height * r);
+                } else {
+                    ctx.fillStyle = "#999";
+                    ctx.fill();
+                }
+
+                if (nodo.nome === bersaglioCorrente) {
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.40)";
+                    ctx.fill();
+                }
+
+                ctx.restore();
+
+                ctx.beginPath();
+                ctx.arc(nodo.x, nodo.y, nodo.r, 0, Math.PI * 2);
+                ctx.strokeStyle = "#e31b23";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.restore();
+            });
+
+            nodi.forEach(nodo => {
+                if (pensieri[bersaglioCorrente] && pensieri[bersaglioCorrente][nodo.nome]) {
+                    disegnaNuvoletta(ctx, nodo, pensieri[bersaglioCorrente][nodo.nome]);
+                }
+            });
+
+            requestAnimationFrame(disegnaFrame);
+        }
+
+        disegnaFrame();
+    </script>
+</body>
+
+</html>
